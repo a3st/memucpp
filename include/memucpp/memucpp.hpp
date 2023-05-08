@@ -221,7 +221,7 @@ public:
         }
     }
 
-    auto reboot_vm(uint16_t const vm_index) -> bool {
+    auto reboot_vm(uint16_t const vm_index) -> void {
         std::string command = std::format("\"{}/memuc.exe\" reboot -i {}", memuc_path.string(), vm_index);
         auto output = internal::to_utf_8(internal::process_execute(command));
 
