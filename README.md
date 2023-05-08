@@ -23,7 +23,7 @@ memuc.list_vms();
 ```
 #### Run VM and application, then trigger keys
 
-```
+```c
 memuc::Memuc memuc;
 memuc.set_path("C:/Program Files/Microvirt/MEmu/");
 memuc.start_vm(0);
