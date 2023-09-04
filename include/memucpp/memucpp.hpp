@@ -178,13 +178,13 @@ public:
         auto output = internal::to_utf_8(internal::process_execute(command));
 
         auto lines = output | 
-            std::ranges::views::split('\n') | 
-            std::ranges::views::filter([&](auto const& element) { return element.size() > 1; });
+            std::views::split('\n') | 
+            std::views::filter([&](auto const& element) { return element.size() > 1; });
 
         std::vector<VMInfo> out;
 
         for(auto const& line : lines) {
-            auto args = line | std::ranges::views::split(',') | std::ranges::views::transform([](auto&& element) {
+            auto args = line | std::views::split(',') | std::views::transform([](auto&& element) {
                 return std::string_view(element.data(), element.size());
             }) | std::ranges::to<std::vector>();
 
@@ -214,10 +214,8 @@ public:
         std::string command = std::format("\"{}/memuc.exe\" stop -i {}", memuc_path.string(), vm_index);
         auto output = internal::to_utf_8(internal::process_execute(command));
 
-        if(output.find("already") != std::string::npos) {
+        if(output.find("SUCCESS") != std::string::npos) {
             image_data[vm_index].reset();
-        } else {
-            throw error("MEmuc is not connected");
         }
     }
 
@@ -225,25 +223,25 @@ public:
         std::string command = std::format("\"{}/memuc.exe\" reboot -i {}", memuc_path.string(), vm_index);
         auto output = internal::to_utf_8(internal::process_execute(command));
 
-        if(output.find("already connected") == std::string::npos) {
+        if(output.find("SUCCESS") == std::string::npos) {
             throw error("MEmuc is not connected");
         }
     }
 
     auto start_app(uint16_t const vm_index, std::string_view const package_name) -> void {
-        std::string command = std::format("\"{}/memuc.exe\" -i {} adb shell monkey -p {} 1", memuc_path.string(), vm_index, package_name);
+        std::string command = std::format("\"{}/memuc.exe\" -i {} startapp {}", memuc_path.string(), vm_index, package_name);
         auto output = internal::to_utf_8(internal::process_execute(command));
 
-        if(output.find("already connected") == std::string::npos) {
+        if(output.find("SUCCESS") == std::string::npos) {
             throw error("MEmuc is not connected");
         }
     }
 
     auto stop_app(uint16_t const vm_index, std::string_view const package_name) -> void {
-        std::string command = std::format("\"{}/memuc.exe\" -i {} adb shell monkey -p {} 0", memuc_path.string(), vm_index, package_name);
+        std::string command = std::format("\"{}/memuc.exe\" -i {} stopapp {}", memuc_path.string(), vm_index, package_name);
         auto output = internal::to_utf_8(internal::process_execute(command));
 
-        if(output.find("already") == std::string::npos) {
+        if(output.find("SUCCESS") == std::string::npos) {
             throw error("MEmuc is not connected");
         }
     }
@@ -252,7 +250,7 @@ public:
         std::string command = std::format("\"{}/memuc.exe\" -i {} adb shell input keyevent {}", memuc_path.string(), vm_index, static_cast<uint32_t>(key_code));
         auto output = internal::to_utf_8(internal::process_execute(command));
 
-        if(output.find("already") == std::string::npos) {
+        if(output.find("connected") == std::string::npos) {
             throw error("MEmuc is not connected");
         }
     }
@@ -262,7 +260,7 @@ public:
             memuc_path.string(), vm_index, std::get<0>(start), std::get<1>(start), std::get<0>(end), std::get<1>(end), speed);
         auto output = internal::to_utf_8(internal::process_execute(command));
 
-        if(output.find("already") == std::string::npos) {
+        if(output.find("connected") == std::string::npos) {
             throw error("MEmuc is not connected");
         }
     }
@@ -271,9 +269,39 @@ public:
         std::string command = std::format("\"{}/memuc.exe\" -i {} adb shell input tap {} {}", memuc_path.string(), vm_index, std::get<0>(pos), std::get<1>(pos));
         auto output = internal::to_utf_8(internal::process_execute(command));
 
-        if(output.find("already") == std::string::npos) {
+        if(output.find("connected") == std::string::npos) {
             throw error("MEmuc is not connected");
         }
+    }
+
+    auto list_process(uint16_t const vm_index) -> std::vector<ProcessInfo> {
+        std::string command = std::format("\"{}/memuc.exe\" -i {} adb shell ps", memuc_path.string(), vm_index);
+        auto output = internal::process_execute(command);
+
+        auto message = internal::to_utf_8(std::span<uint8_t const>(output.data(), output.data() + 40));
+
+        if(message.find("connected") == std::string::npos) {
+            throw error("MEmuc is not connected");
+        }
+
+        auto data = internal::to_utf_8(std::span<uint8_t const>(output.data() + 40, output.size()));
+
+        auto lines = data | std::views::split('\n') | std::views::transform([](auto&& element) {
+            return std::string_view(element.data(), element.size()); 
+        }) | std::views::filter([](auto&& element) { return element.find("com.") != std::string::npos; }) | 
+            std::ranges::to<std::vector>() | std::views::drop(1) | std::views::reverse | 
+            std::views::drop(1) | std::views::reverse;
+
+        std::vector<ProcessInfo> out;
+
+        for(auto const& line : lines) {
+            auto process_info = ProcessInfo {
+                .name = std::string(line.begin() + line.find("com."), line.begin() + line.size())
+            };
+            
+            out.push_back(process_info);
+        }
+        return out;
     }
 
     auto screen_cap(uint16_t const vm_index) -> std::span<uint8_t const> {
@@ -281,7 +309,8 @@ public:
         auto output = internal::process_execute(command);
 
         auto message = internal::to_utf_8(std::span<uint8_t const>(output.data(), output.data() + 40));
-        if(message.find("already") == std::string::npos) {
+
+        if(message.find("connected") == std::string::npos) {
             throw error("MEmuc is not connected");
         }
 

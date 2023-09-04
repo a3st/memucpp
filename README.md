@@ -11,7 +11,7 @@
 - [x] Start/stop applications
 - [x] Trigger keys, touch and swipes
 - [x] Screen capture without save images
-- [ ] Get a running processes of VM
+- [x] Get list a running processes of VM
 
 ### Examples
 #### Get a list VMs
