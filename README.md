@@ -34,9 +34,6 @@ memuc.trigger_key(0, memuc::KeyCode::Back);
 ### Supported compilers
 This library is Header-Only but it use functions from C++20/23 like ranges.
 
-Compilers is tested:
-- [x] MSVC
-
 ### License
 
 Check LICENSE for additional information.
