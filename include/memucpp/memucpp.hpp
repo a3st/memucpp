@@ -9,8 +9,11 @@
 #include <string_view>
 #include <ranges>
 #include <charconv>
+#include <spanstream>
+#include <stb_image_write.h>
 
 #define NOMINMAX
+#define _WINSOCKAPI_
 #include <windows.h>
 #undef NOMINMAX
 
@@ -88,21 +91,6 @@ inline auto to_utf_8(std::span<uint8_t const> const source) -> std::string {
         nullptr
     );
     return dest;
-}
-
-inline auto to_lf_from_crlf(std::span<uint8_t const> const source) -> std::vector<uint8_t> {
-    std::vector<uint8_t> out(source.size());
-    size_t offset = 0;
-    for (size_t i = 0; i < source.size(); ++i) {
-        if(source.size() > i + 1 && source[i] == 0x0d && source[i + 1] == 0x0a) {
-            out[offset] = 0x0a;
-            i++;
-        } else {
-            out[offset] = source[i];
-        }
-        offset += 1;
-    }
-    return out;
 }
 
 template<typename Type>
@@ -204,7 +192,7 @@ public:
         auto output = internal::to_utf_8(internal::process_execute(command));
 
         if(output.find("SUCCESS") != std::string::npos) {
-            image_data[vm_index] = std::make_unique<uint8_t[]>(8 * 1024 * 1024);
+            image_data[vm_index].resize(8 * 1024 * 1024);
         } else {
             throw error("MEmuc is not connected");
         }
@@ -215,7 +203,7 @@ public:
         auto output = internal::to_utf_8(internal::process_execute(command));
 
         if(output.find("SUCCESS") != std::string::npos) {
-            image_data[vm_index].reset();
+            image_data[vm_index].clear();
         }
     }
 
@@ -274,6 +262,16 @@ public:
         }
     }
 
+    template<typename Type>
+    auto set_config(uint16_t const vm_index, std::string_view const param, Type&& value) {
+        std::string command = std::format("\"{}/memuc.exe\" setconfigex -i {} {} {}", memuc_path.string(), vm_index, param, value);
+        auto output = internal::to_utf_8(internal::process_execute(command));
+
+        if(output.find("SUCCESS") == std::string::npos) {
+            throw error("MEmuc is not connected");
+        }
+    }
+
     auto list_process(uint16_t const vm_index) -> std::vector<ProcessInfo> {
         std::string command = std::format("\"{}/memuc.exe\" -i {} adb shell ps", memuc_path.string(), vm_index);
         auto output = internal::process_execute(command);
@@ -284,7 +282,7 @@ public:
             throw error("MEmuc is not connected");
         }
 
-        auto data = internal::to_utf_8(std::span<uint8_t const>(output.data() + 40, output.size()));
+        auto data = internal::to_utf_8(std::span<uint8_t const>(output.data() + 40, output.data() + output.size()));
 
         auto lines = data | std::views::split('\n') | std::views::transform([](auto&& element) {
             return std::string_view(element.data(), element.size()); 
@@ -305,7 +303,7 @@ public:
     }
 
     auto screen_cap(uint16_t const vm_index) -> std::span<uint8_t const> {
-        std::string command = std::format("\"{}/memuc.exe\" -i {} adb shell screencap", memuc_path.string(), vm_index);
+        std::string command = std::format("\"{}/memuc.exe\" -i {} adb exec-out screencap", memuc_path.string(), vm_index);
         auto output = internal::process_execute(command);
 
         auto message = internal::to_utf_8(std::span<uint8_t const>(output.data(), output.data() + 40));
@@ -314,58 +312,37 @@ public:
             throw error("MEmuc is not connected");
         }
 
-        auto data = internal::to_lf_from_crlf(std::span<uint8_t const>(output.data() + 40, output.size()));
-
-        size_t offset = 0;
-
-        uint32_t const width = internal::from_bytes(std::span<uint8_t const>(data.data() + offset, 4));
-        offset += sizeof(uint32_t);
-        uint32_t const height = internal::from_bytes(std::span<uint8_t const>(data.data() + offset, 4));
-        offset += sizeof(uint32_t);
-        uint32_t const pf = internal::from_bytes(std::span<uint8_t const>(data.data() + offset, 4));
-        offset += sizeof(uint32_t);
-
-        auto bfh = BITMAPFILEHEADER {};
-        bfh.bfType = 0x4D42;
-        bfh.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+        std::spanstream stream(
+            std::span<char>(reinterpret_cast<char*>(output.data()) + 40, reinterpret_cast<char*>(output.data()) + output.size()), 
+            std::ios::in | std::ios::binary
+        );
             
-        auto bih = BITMAPINFOHEADER {};
-        bih.biSize = sizeof(BITMAPINFOHEADER);
-        bih.biWidth = width;
-        bih.biHeight = height;
-        bih.biPlanes = 1;
-        bih.biBitCount = 24;
-        bih.biCompression = BI_RGB;
-        bih.biSizeImage = width * height * 3;
+        std::vector<uint8_t> buffer(1024);
 
-        uint32_t const alignment = 4;
-        uint32_t const mask = alignment - 1;
-        uint32_t const align_width = (width * 3) + (-int32_t(width * 3) & mask);
+        stream.read(reinterpret_cast<char*>(buffer.data()), sizeof(uint32_t));
+        uint32_t const width = internal::from_bytes(buffer);
 
-        bfh.bfSize = align_width * height + bfh.bfOffBits;
+        stream.read(reinterpret_cast<char*>(buffer.data()), sizeof(uint32_t));
+        uint32_t const height = internal::from_bytes(buffer);
 
-        std::vector<uint8_t> buffer(width * 3);
+        stream.read(reinterpret_cast<char*>(buffer.data()), sizeof(uint32_t));
+        uint32_t const pf = internal::from_bytes(buffer);
 
-        for(uint32_t i = 0; i < height; ++i) {
-            for(uint32_t j = 0; j < width; ++j) {
-                buffer[(j * 3) + 0] = data[offset + j * 4 + 2];
-                buffer[(j * 3) + 1] = data[offset + j * 4 + 1];
-                buffer[(j * 3) + 2] = data[offset + j * 4 + 0];
-            }
+        auto context = std::pair<uint8_t*, size_t>(image_data[vm_index].data(), 0);
 
-            std::memcpy(image_data[vm_index].get() + bfh.bfOffBits + ((height - 1) - i) * align_width, buffer.data(), buffer.size());
-            offset += width * 4;
-        }
+        stbi_write_bmp_to_func([](void *context, void *data, int size) -> void {
+            auto ctx = reinterpret_cast<std::pair<uint8_t*, size_t>*>(context);
+            std::memcpy(ctx->first, data, size);
+            ctx->first = ctx->first + size;
+            ctx->second += size;
+        }, &context, width, height, 4, output.data() + 40 + stream.tellg());
 
-        std::memcpy(image_data[vm_index].get(), &bfh, sizeof(BITMAPFILEHEADER));
-        std::memcpy(image_data[vm_index].get() + sizeof(BITMAPFILEHEADER), &bih, sizeof(BITMAPINFOHEADER));
-
-        return std::span<uint8_t const>(image_data[vm_index].get(), bfh.bfSize);
+        return std::span<uint8_t const>(image_data[vm_index].data(), context.second);
     }
 
 private:
     std::filesystem::path memuc_path;
-    std::array<std::unique_ptr<uint8_t[]>, MAX_INSTANCES> image_data;
+    std::array<std::vector<uint8_t>, MAX_INSTANCES> image_data;
 };
 
 }

@@ -2,10 +2,9 @@
 
 * [Features](#features)
 * [Examples](#examples)
-* [Supported compilers](#supported-compilers)
 * [License](#license)
 
-### Features
+## Features
 - [x] Get a list VMs
 - [x] Start/stop/restart VMs
 - [x] Start/stop applications
@@ -13,7 +12,7 @@
 - [x] Screen capture without save images
 - [x] Get list a running processes of VM
 
-### Examples
+## Examples
 #### Get a list VMs
 The ```memuc::Memuc``` provides API for interact with MEMUC (MEmu Command).
 ```c
@@ -31,9 +30,10 @@ memuc.start_app(0, "com.myapp");
 memuc.trigger_key(0, memuc::KeyCode::Back);
 ```
 
-### Supported compilers
-This library is Header-Only but it use functions from C++20/23 like ranges.
+## Thirdparty
 
-### License
+- [stb](https://github.com/nothings/stb)
+
+## License
 
 Check LICENSE for additional information.
