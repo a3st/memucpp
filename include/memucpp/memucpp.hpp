@@ -270,6 +270,30 @@ namespace memucpp
             }
         }
 
+        auto trigger_zoom(uint16_t const vm_index, int32_t const factor) -> void
+        {
+            if (factor > 0)
+            {
+                std::string command = std::format("\"{}/memuc.exe\" zoomin -i {}", memuc_path.string(), vm_index);
+                auto output = internal::to_utf_8(internal::process_execute(command));
+
+                if (output.find("SUCCESS") == std::string::npos)
+                {
+                    throw error("MEmuc is not connected");
+                }
+            }
+            else
+            {
+                std::string command = std::format("\"{}/memuc.exe\" zoomout -i {}", memuc_path.string(), vm_index);
+                auto output = internal::to_utf_8(internal::process_execute(command));
+
+                if (output.find("SUCCESS") == std::string::npos)
+                {
+                    throw error("MEmuc is not connected");
+                }
+            }
+        }
+
         auto trigger_click(uint16_t const vm_index, std::tuple<uint32_t, uint32_t> const pos) -> void
         {
             std::string command = std::format("\"{}/memuc.exe\" -i {} adb shell input tap {} {}", memuc_path.string(),
