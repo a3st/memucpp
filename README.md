@@ -1,6 +1,3 @@
-# MEmuc Wrapper Library
-C++ wrapper over emulator functions. In just a few lines of code you can get a screenshot or trigger a keystroke.
-
 ![splash](splash.png)
 
 ## Features
