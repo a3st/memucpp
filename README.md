@@ -33,7 +33,3 @@ memuc.trigger_key(0, memuc::KeyCode::Back);
 ## Thirdparties
 
 - [stb](https://github.com/nothings/stb)
-
-## License
-
-Check LICENSE for additional information.
