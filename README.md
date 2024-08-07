@@ -1,39 +1,33 @@
-![splash](splash.png)
-
-* [Features](#features)
-* [Examples](#examples)
-* [License](#license)
+![splash](media/splash.png)
 
 ## Features
-- [x] Get a list VMs
-- [x] Start/stop/restart VMs
-- [x] Start/stop applications
-- [x] Trigger keys, touch and swipes
-- [x] Screen capture without save images
-- [x] Get list a running processes of VM
+- [x] Gets list of the VMs
+- [x] Starts/stops/restarts the VMs
+- [x] Starts/stops the applications
+- [x] Triggers keys, touches and swipes
+- [x] Takes the screen captures without save images on disk (into memory buffer)
+- [x] Gets list of the running VM's processes
 
 ## Examples
-#### Get a list VMs
-The ```memuc::Memuc``` provides API for interact with MEMUC (MEmu Command).
-```c
-memuc::Memuc memuc;
-memuc.set_path("C:/Program Files/Microvirt/MEmu/");
+
+### Returns list of the VMs
+
+The ```memuc::Memuc``` provides API for interacting with MEmu command.
+```c++
+memuc::Memuc memuc(0, memuc::VMConfig::Default());
 memuc.list_vms();
 ```
-#### Run VM and application, then trigger keys
 
-```c
-memuc::Memuc memuc;
-memuc.set_path("C:/Program Files/Microvirt/MEmu/");
-memuc.start_vm(0);
+### Runs the VM and the application, then triggers keys
+
+```c++
+memuc::Memuc memuc(0, memuc::VMConfig::Default());
 memuc.start_app(0, "com.myapp");
 memuc.trigger_key(0, memuc::KeyCode::Back);
 ```
 
-## Thirdparty
+### Changes default MEmu command path
 
-- [stb](https://github.com/nothings/stb)
-
-## License
-
-Check LICENSE for additional information.
+```c++
+memuc::memuc_path = "D:/Program Files/Microvirt/MEmu/memuc.exe";
+```
