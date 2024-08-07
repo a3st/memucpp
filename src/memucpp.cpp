@@ -121,7 +121,7 @@ namespace memucpp
     {
         std::vector<std::string> const arguments{std::format("\"{}\"", memuc_path.string()), "stop", "-i",
                                                  std::to_string(vm_index)};
-        // internal::subprocess_execute(arguments);
+        internal::subprocess_execute(arguments);
     }
 
     Memuc::Memuc(Memuc&& other) : vm_index(other.vm_index), image_buffer(std::move(other.image_buffer))
